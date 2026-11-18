@@ -5,14 +5,15 @@ from google.genai import errors
 
 client = genai.Client()
 
-# Primary model first, then fallbacks.
+# 1) SETTINGS: primary model first, then fallbacks.
 MODELS = [
-    os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite"),
+    os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"),
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
-    "gemini-3.8-flash",
 ]
 
 
+# 2) FUNCTION: must be defined BEFORE it is used.
 def ask(prompt, retries_per_model=3):
     """Try each model in turn; retry temporary errors (429/503) with exponential backoff."""
     for model in MODELS:
@@ -32,4 +33,24 @@ def ask(prompt, retries_per_model=3):
     raise RuntimeError("All models unavailable - try again later.")
 
 
-print(ask("In one sentence, what does an HR analytics team do?"))
+# 3) MAIN CODE: runs last, so ask() already exists.
+schema = """
+employees(employee_id, first_name, last_name, country, org_unit_id,
+          job_title, job_level, manager_id, hire_date, exit_date, status)
+org_units(org_unit_id, name, parent_org_unit_id)
+"""
+
+questions = [
+    "How many active employees are there in each country?",
+    "Which 3 countries have the most employees who left?",
+    "Average job level per department name",
+]
+
+for q in questions:
+    prompt = f"""You write SQLite queries.
+Schema:
+{schema}
+Return ONLY the SQL query, no explanation, no markdown.
+Question: {q}"""
+    print(f"\nQ: {q}")
+    print(ask(prompt))
